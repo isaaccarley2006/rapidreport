@@ -19,4 +19,4 @@ DATABASE_URL = os.getenv(
     "sqlite:///" + os.path.join(os.path.dirname(__file__), "data", "reports.db"),
 )
 
-FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "sofiasauraborrego")
