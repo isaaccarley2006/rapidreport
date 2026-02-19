@@ -42,12 +42,31 @@ def _get_token() -> str:
     accounts = app.get_accounts()
     print(f"  [outlook] Found {len(accounts)} cached accounts, env cache set: {bool(os.getenv('MS_TOKEN_CACHE'))}")
     if accounts:
-        result = app.acquire_token_silent(SCOPES, account=accounts[0], force_refresh=True)
+        try:
+            result = app.acquire_token_silent(SCOPES, account=accounts[0], force_refresh=True)
+        except Exception as e:
+            print(f"  [outlook] Silent auth exception: {e}")
+            result = None
         if result and "access_token" in result:
             _save_cache(cache)
             return result["access_token"]
         error_detail = json.dumps(result, indent=2) if result else "no result"
         print(f"  [outlook] Silent auth failed: {error_detail}")
+        # Try with broader scopes matching what's in the cache
+        try:
+            result = app.acquire_token_silent(
+                ["Mail.Read", "Mail.Send", "User.Read"],
+                account=accounts[0],
+                force_refresh=True,
+            )
+        except Exception as e:
+            print(f"  [outlook] Broad scope auth exception: {e}")
+            result = None
+        if result and "access_token" in result:
+            _save_cache(cache)
+            return result["access_token"]
+        error_detail2 = json.dumps(result, indent=2) if result else "no result"
+        print(f"  [outlook] Broad scope auth also failed: {error_detail2}")
 
     # On Railway (no interactive terminal), don't attempt device flow
     if os.getenv("MS_TOKEN_CACHE"):
