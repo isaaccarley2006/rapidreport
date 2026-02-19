@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
@@ -29,6 +30,10 @@ SessionLocal = sessionmaker(bind=engine)
 
 
 def init_db():
+    db_url = config.DATABASE_URL
+    if db_url.startswith("sqlite:///"):
+        db_path = db_url.replace("sqlite:///", "")
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
     Base.metadata.create_all(engine)
 
 
