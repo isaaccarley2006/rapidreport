@@ -40,13 +40,22 @@ def _get_token() -> str:
     app, cache = _get_msal_app()
 
     accounts = app.get_accounts()
+    print(f"  [outlook] Found {len(accounts)} cached accounts, env cache set: {bool(os.getenv('MS_TOKEN_CACHE'))}")
     if accounts:
         result = app.acquire_token_silent(SCOPES, account=accounts[0])
         if result and "access_token" in result:
             _save_cache(cache)
             return result["access_token"]
+        print(f"  [outlook] Silent auth failed: {result.get('error_description') if result else 'no result'}")
 
-    # Device code flow for initial auth
+    # On Railway (no interactive terminal), don't attempt device flow
+    if os.getenv("MS_TOKEN_CACHE"):
+        raise RuntimeError(
+            "Token cache expired or invalid. Re-authenticate locally and update "
+            "the MS_TOKEN_CACHE env var in Railway."
+        )
+
+    # Device code flow for local/interactive auth
     flow = app.initiate_device_flow(scopes=SCOPES)
     if "user_code" not in flow:
         raise RuntimeError(f"Device flow failed: {json.dumps(flow, indent=2)}")
