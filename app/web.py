@@ -1,4 +1,5 @@
 import json
+import os
 import re
 
 import anthropic
@@ -205,6 +206,24 @@ def create_app():
         from app.report import generate_weekly_report
         report = generate_weekly_report()
         return jsonify({"status": "ok", "report_id": report.id})
+
+    # Set up weekly cron job on Railway (Fridays at 4pm UTC)
+    if os.getenv("RAILWAY_ENVIRONMENT"):
+        from apscheduler.schedulers.background import BackgroundScheduler
+
+        def _scheduled_generate():
+            with app.app_context():
+                from app.report import generate_weekly_report
+                try:
+                    report = generate_weekly_report()
+                    print(f"  [cron] Weekly report generated (id={report.id})")
+                except Exception as e:
+                    print(f"  [cron] Report generation failed: {e}")
+
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(_scheduled_generate, "cron", day_of_week="fri", hour=16, minute=0)
+        scheduler.start()
+        print("  [cron] Scheduled weekly report for Fridays at 16:00 UTC")
 
     return app
 
