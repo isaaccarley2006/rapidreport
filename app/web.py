@@ -196,6 +196,16 @@ def create_app():
 
         return jsonify({"answer": message.content[0].text})
 
+    @app.route("/api/generate", methods=["POST"])
+    def api_generate():
+        secret = request.headers.get("Authorization", "")
+        if secret != f"Bearer {config.FLASK_SECRET_KEY}":
+            return jsonify({"error": "Unauthorized"}), 401
+
+        from app.report import generate_weekly_report
+        report = generate_weekly_report()
+        return jsonify({"status": "ok", "report_id": report.id})
+
     return app
 
 
