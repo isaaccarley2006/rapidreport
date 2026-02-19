@@ -3,15 +3,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CLICKUP_API_TOKEN = os.environ["CLICKUP_API_TOKEN"]
-CLICKUP_TEAM_ID = os.environ["CLICKUP_TEAM_ID"]
+CLICKUP_API_TOKEN = os.getenv("CLICKUP_API_TOKEN", "")
+CLICKUP_TEAM_ID = os.getenv("CLICKUP_TEAM_ID", "")
 
-MS_CLIENT_ID = os.environ["MS_CLIENT_ID"]
-MS_TENANT_ID = os.environ["MS_TENANT_ID"]
+MS_CLIENT_ID = os.getenv("MS_CLIENT_ID", "")
+MS_TENANT_ID = os.getenv("MS_TENANT_ID", "")
 
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
-REPORT_RECIPIENT_EMAIL = os.environ["REPORT_RECIPIENT_EMAIL"]
+REPORT_RECIPIENT_EMAIL = os.getenv("REPORT_RECIPIENT_EMAIL", "")
 REPORT_SENDER_NAME = os.getenv("REPORT_SENDER_NAME", "RapidReport Bot")
 
 DATABASE_URL = os.getenv(
