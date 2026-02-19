@@ -13,7 +13,11 @@ TOKEN_CACHE_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "token_
 
 def _get_msal_app():
     cache = msal.SerializableTokenCache()
-    if os.path.exists(TOKEN_CACHE_PATH):
+    # Prefer env var token cache (for Railway/serverless), fall back to file
+    env_cache = os.getenv("MS_TOKEN_CACHE")
+    if env_cache:
+        cache.deserialize(env_cache)
+    elif os.path.exists(TOKEN_CACHE_PATH):
         with open(TOKEN_CACHE_PATH) as f:
             cache.deserialize(f.read())
 
