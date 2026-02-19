@@ -42,11 +42,12 @@ def _get_token() -> str:
     accounts = app.get_accounts()
     print(f"  [outlook] Found {len(accounts)} cached accounts, env cache set: {bool(os.getenv('MS_TOKEN_CACHE'))}")
     if accounts:
-        result = app.acquire_token_silent(SCOPES, account=accounts[0])
+        result = app.acquire_token_silent(SCOPES, account=accounts[0], force_refresh=True)
         if result and "access_token" in result:
             _save_cache(cache)
             return result["access_token"]
-        print(f"  [outlook] Silent auth failed: {result.get('error_description') if result else 'no result'}")
+        error_detail = json.dumps(result, indent=2) if result else "no result"
+        print(f"  [outlook] Silent auth failed: {error_detail}")
 
     # On Railway (no interactive terminal), don't attempt device flow
     if os.getenv("MS_TOKEN_CACHE"):
