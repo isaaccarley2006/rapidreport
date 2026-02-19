@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% set nav_active = "dashboard" %}
+
+{% block content %}
+<h1 class="page-title">Dashboard</h1>
+<p class="page-sub">Your weekly work at a glance</p>
+
+{% if reports %}
+<div class="stats">
+    <div class="stat-card accent">
+        <div class="stat-val">{{ reports | length }}</div>
+        <div class="stat-label">Total Reports</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-val">{{ latest_task_count }}</div>
+        <div class="stat-label">Tasks Completed (Latest)</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-val">{{ latest_upcoming_count }}</div>
+        <div class="stat-label">Upcoming Next Week</div>
+    </div>
+</div>
+
+<div class="nav-label" style="padding:0 0 12px;">Recent Reports</div>
+{% for r in reports %}
+<a href="/report/{{ r.id }}" style="text-decoration:none;color:inherit;">
+    <div class="card">
+        <h3>{{ r.week_start }} — {{ r.week_end }}</h3>
+        <span class="meta">Generated {{ r.created_at.strftime('%B %d, %Y at %H:%M UTC') if r.created_at else 'N/A' }}</span>
+    </div>
+</a>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+    <p>No reports yet.</p>
+    <p>Run <code>python generate_report.py</code> to create your first one.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}{{ report.week_start }} — {{ report.week_end }}{% endblock %}
+
+{% block content %}
+<a href="/" class="back-link">&larr; Dashboard</a>
+
+<h1 class="page-title">{{ report.week_start }} — {{ report.week_end }}</h1>
+<p class="page-sub">Generated {{ report.created_at.strftime('%B %d, %Y at %H:%M UTC') if report.created_at else 'N/A' }}</p>
+
+<div class="stats">
+    <div class="stat-card green">
+        <div class="stat-val">{{ tasks | length }}</div>
+        <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-val">{{ upcoming_tasks | length }}</div>
+        <div class="stat-label">Upcoming</div>
+    </div>
+    <div class="stat-card accent">
+        <div class="stat-val">{{ emails | length }}</div>
+        <div class="stat-label">Emails</div>
+    </div>
+</div>
+
+<div class="report-section">
+    <h2>Summary</h2>
+    <div class="report-body">{{ summary_html | safe }}</div>
+</div>
+
+{% if suggestions_html %}
+<div class="report-section">
+    <h2>Next Week</h2>
+    <div class="report-body">{{ suggestions_html | safe }}</div>
+</div>
+{% endif %}
+
+<div class="report-section">
+    <h2>Completed Tasks ({{ tasks | length }})</h2>
+    {% if tasks %}
+        {% for t in tasks %}
+        <div class="task-row">
+            <span class="task-name">{{ t.name }}</span>
+            {% if t.list %}<span class="tag tag-list">{{ t.list }}</span>{% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="color:var(--text-muted);font-size:13px;">No tasks completed this week.</p>
+    {% endif %}
+</div>
+
+<div class="report-section">
+    <h2>Upcoming Tasks ({{ upcoming_tasks | length }})</h2>
+    {% if upcoming_tasks %}
+        {% for t in upcoming_tasks %}
+        <div class="task-row">
+            <span class="task-name">{{ t.name }}</span>
+            {% if t.list %}<span class="tag tag-list">{{ t.list }}</span>{% endif %}
+            {% if t.recurring %}<span class="tag tag-recurring">recurring</span>{% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="color:var(--text-muted);font-size:13px;">Nothing scheduled yet.</p>
+    {% endif %}
+</div>
+
+<div class="report-section">
+    <h2>Emails ({{ emails | length }})</h2>
+    {% if emails %}
+        {% for e in emails %}
+        <div class="email-row">
+            <span class="email-subject">{{ e.subject or '(no subject)' }}</span>
+            <span class="email-from">{{ e.from or 'unknown' }}</span>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="color:var(--text-muted);font-size:13px;">No emails recorded.</p>
+    {% endif %}
+</div>
+{% endblock %}
