@@ -36,43 +36,48 @@ def _save_cache(cache):
             f.write(cache.serialize())
 
 
+def _refresh_token_direct() -> str | None:
+    """Refresh the access token using a direct HTTP call, bypassing MSAL."""
+    refresh_token = os.getenv("MS_REFRESH_TOKEN")
+    if not refresh_token:
+        return None
+
+    resp = requests.post(
+        f"https://login.microsoftonline.com/{config.MS_TENANT_ID}/oauth2/v2.0/token",
+        data={
+            "client_id": config.MS_CLIENT_ID,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "scope": " ".join(SCOPES),
+        },
+        timeout=30,
+    )
+    if resp.ok:
+        return resp.json()["access_token"]
+    print(f"  [outlook] Direct refresh failed: {resp.text}")
+    return None
+
+
 def _get_token() -> str:
+    # Try direct refresh token first (most reliable on Railway)
+    token = _refresh_token_direct()
+    if token:
+        return token
+
     app, cache = _get_msal_app()
 
     accounts = app.get_accounts()
-    print(f"  [outlook] Found {len(accounts)} cached accounts, env cache set: {bool(os.getenv('MS_TOKEN_CACHE'))}")
     if accounts:
-        try:
-            result = app.acquire_token_silent(SCOPES, account=accounts[0], force_refresh=True)
-        except Exception as e:
-            print(f"  [outlook] Silent auth exception: {e}")
-            result = None
+        result = app.acquire_token_silent(SCOPES, account=accounts[0])
         if result and "access_token" in result:
             _save_cache(cache)
             return result["access_token"]
-        error_detail = json.dumps(result, indent=2) if result else "no result"
-        print(f"  [outlook] Silent auth failed: {error_detail}")
-        # Try with broader scopes matching what's in the cache
-        try:
-            result = app.acquire_token_silent(
-                ["Mail.Read", "Mail.Send", "User.Read"],
-                account=accounts[0],
-                force_refresh=True,
-            )
-        except Exception as e:
-            print(f"  [outlook] Broad scope auth exception: {e}")
-            result = None
-        if result and "access_token" in result:
-            _save_cache(cache)
-            return result["access_token"]
-        error_detail2 = json.dumps(result, indent=2) if result else "no result"
-        print(f"  [outlook] Broad scope auth also failed: {error_detail2}")
 
     # On Railway (no interactive terminal), don't attempt device flow
-    if os.getenv("MS_TOKEN_CACHE"):
+    if os.getenv("MS_REFRESH_TOKEN") or os.getenv("MS_TOKEN_CACHE"):
         raise RuntimeError(
-            "Token cache expired or invalid. Re-authenticate locally and update "
-            "the MS_TOKEN_CACHE env var in Railway."
+            "Token refresh failed. Re-authenticate locally and update "
+            "the MS_REFRESH_TOKEN env var in Railway."
         )
 
     # Device code flow for local/interactive auth
