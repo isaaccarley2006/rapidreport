@@ -6,7 +6,7 @@ import anthropic
 from flask import Flask, render_template, abort, request, jsonify
 
 import config
-from app.models import Report, get_session, init_db
+from app.models import ChatMessage, Report, get_session, init_db
 
 
 def _md_to_html(text: str) -> str:
@@ -135,19 +135,22 @@ def create_app():
         data = request.get_json()
         question = data.get("question", "").strip()
         report_id = data.get("report_id")
+        session_id = data.get("session_id", "default")
 
         if not question:
             return jsonify({"error": "No question provided"}), 400
 
-        session = get_session()
+        db = get_session()
+
+        # Get report context
         if report_id:
-            reports = [session.query(Report).get(report_id)]
+            reports = [db.query(Report).get(report_id)]
             reports = [r for r in reports if r]
         else:
-            reports = session.query(Report).order_by(Report.created_at.desc()).limit(5).all()
-        session.close()
+            reports = db.query(Report).order_by(Report.created_at.desc()).limit(5).all()
 
         if not reports:
+            db.close()
             return jsonify({"answer": "No reports found to reference."})
 
         context_parts = []
@@ -173,8 +176,26 @@ def create_app():
                     for e in emails[:20]
                 )
             )
-
         context = "\n\n".join(context_parts)
+
+        # Load conversation history for this session
+        history = (
+            db.query(ChatMessage)
+            .filter_by(session_id=session_id)
+            .order_by(ChatMessage.created_at.asc())
+            .limit(20)
+            .all()
+        )
+
+        # Build messages: first message includes report context, then history
+        messages = []
+        for msg in history:
+            messages.append({"role": msg.role, "content": msg.content})
+        messages.append({"role": "user", "content": question})
+
+        # Save user message
+        db.add(ChatMessage(session_id=session_id, role="user", content=question))
+        db.commit()
 
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
         message = client.messages.create(
@@ -184,18 +205,20 @@ def create_app():
                 "You are an assistant that answers questions about weekly work reports. "
                 "Be concise, specific, and reference actual task names, emails, or details. "
                 "If the data doesn't contain the answer, say so honestly. "
-                "Keep answers to 2-4 sentences unless more detail is needed."
+                "Keep answers to 2-4 sentences unless more detail is needed.\n\n"
+                f"Here are the recent weekly reports:\n\n{context}"
             ),
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Here are the recent weekly reports:\n\n{context}\n\n"
-                    f"Question: {question}",
-                }
-            ],
+            messages=messages,
         )
 
-        return jsonify({"answer": message.content[0].text})
+        answer = message.content[0].text
+
+        # Save assistant response
+        db.add(ChatMessage(session_id=session_id, role="assistant", content=answer))
+        db.commit()
+        db.close()
+
+        return jsonify({"answer": answer, "session_id": session_id})
 
     @app.route("/api/generate", methods=["POST"])
     def api_generate():

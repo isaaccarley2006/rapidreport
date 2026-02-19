@@ -181,6 +181,13 @@
     const chatWindow = document.getElementById('chat-window');
     const emptyState = document.getElementById('chat-empty');
 
+    // Generate a unique session ID for this browser tab
+    let sessionId = sessionStorage.getItem('chat_session_id');
+    if (!sessionId) {
+        sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        sessionStorage.setItem('chat_session_id', sessionId);
+    }
+
     function mdToHtml(text) {
         text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const lines = text.split('\n');
@@ -247,7 +254,7 @@
             const res = await fetch('/api/ask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: q })
+                body: JSON.stringify({ question: q, session_id: sessionId })
             });
             const data = await res.json();
             thinking.remove();

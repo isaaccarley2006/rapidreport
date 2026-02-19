@@ -25,6 +25,16 @@ class Report(Base):
     suggestions_text = Column(Text, nullable=False, default="")
 
 
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True)
+    session_id = Column(String, nullable=False, index=True)
+    role = Column(String, nullable=False)  # "user" or "assistant"
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 engine = create_engine(config.DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
