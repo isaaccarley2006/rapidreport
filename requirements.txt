@@ -6,3 +6,4 @@ sqlalchemy==2.0.36
 msal==1.31.1
 gunicorn==23.0.0
 APScheduler==3.10.4
+feedparser

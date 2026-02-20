@@ -6,7 +6,25 @@ import anthropic
 from flask import Flask, render_template, abort, request, jsonify
 
 import config
-from app.models import ChatMessage, Report, get_session, init_db
+from app.models import ChatMessage, LinkedInPost, LinkedInWeek, NewsDigest, Report, get_session, init_db, seed_stats
+from app.linkedin import (
+    CONTENT_PILLARS,
+    DAY_ORDER,
+    assign_post_to_day,
+    create_stat,
+    delete_stat,
+    generate_post_drafts,
+    generate_recycle_post,
+    generate_week_batch,
+    get_all_stats,
+    get_current_week_start,
+    get_or_create_week,
+    get_recyclable_posts,
+    get_week_posts,
+    mark_recyclable,
+    update_stat,
+)
+from app.news_scraper import get_recent_digests, run_daily_digest
 
 
 def _md_to_html(text: str) -> str:
@@ -67,6 +85,7 @@ def create_app():
 
     with app.app_context():
         init_db()
+        seed_stats()
 
     def _sidebar_reports():
         session = get_session()
@@ -230,7 +249,224 @@ def create_app():
         report = generate_weekly_report()
         return jsonify({"status": "ok", "report_id": report.id})
 
-    # Set up weekly cron job on Railway (Fridays at 4pm UTC)
+    # --- LinkedIn Routes ---
+
+    @app.route("/linkedin")
+    def linkedin_page():
+        week_start = request.args.get("week", get_current_week_start())
+        week = get_or_create_week(week_start)
+        posts = get_week_posts(week)
+        stats = get_all_stats()
+        news_digests = get_recent_digests(days=7)
+        return render_template(
+            "linkedin.html",
+            week=week,
+            week_start=week_start,
+            posts=posts,
+            stats=stats,
+            pillars=CONTENT_PILLARS,
+            day_order=DAY_ORDER,
+            news_digests=news_digests,
+            sidebar_reports=_sidebar_reports(),
+            nav_active="linkedin",
+        )
+
+    @app.route("/api/linkedin/generate", methods=["POST"])
+    def linkedin_generate():
+        data = request.get_json()
+        pillar = data.get("pillar", "")
+        audience = data.get("audience", "")
+        if not pillar or not audience:
+            return jsonify({"error": "pillar and audience required"}), 400
+        drafts = generate_post_drafts(pillar, audience)
+        # Return all 3 drafts to client — don't auto-save, let user pick
+        return jsonify({"drafts": drafts})
+
+    @app.route("/api/linkedin/post", methods=["POST"])
+    def linkedin_save_post():
+        """Save a selected draft as a new LinkedInPost."""
+        data = request.get_json()
+        content = data.get("content", "")
+        pillar = data.get("pillar", "")
+        audience = data.get("audience", "")
+        template_type = data.get("template_type", "generated")
+        if not content or not pillar:
+            return jsonify({"error": "content and pillar required"}), 400
+        db = get_session()
+        post = LinkedInPost(
+            pillar=pillar,
+            audience=audience,
+            template_type=template_type,
+            content=content,
+        )
+        db.add(post)
+        db.commit()
+        db.refresh(post)
+        post_id = post.id
+        db.close()
+        return jsonify({"status": "ok", "post_id": post_id})
+
+    @app.route("/api/linkedin/generate-week", methods=["POST"])
+    def linkedin_generate_week():
+        data = request.get_json()
+        week_start = data.get("week_start", get_current_week_start())
+        week = generate_week_batch(week_start)
+        return jsonify({"status": "ok", "week_id": week.id})
+
+    @app.route("/api/linkedin/post/<int:post_id>/approve", methods=["POST"])
+    def linkedin_approve(post_id):
+        db = get_session()
+        post = db.query(LinkedInPost).get(post_id)
+        if not post:
+            db.close()
+            return jsonify({"error": "Post not found"}), 404
+        post.status = "approved"
+        db.commit()
+        db.close()
+        return jsonify({"status": "ok"})
+
+    @app.route("/api/linkedin/post/<int:post_id>/reject", methods=["POST"])
+    def linkedin_reject(post_id):
+        db = get_session()
+        post = db.query(LinkedInPost).get(post_id)
+        if not post:
+            db.close()
+            return jsonify({"error": "Post not found"}), 404
+        # Clear week FK references
+        weeks = db.query(LinkedInWeek).all()
+        for week in weeks:
+            for day in DAY_ORDER:
+                if getattr(week, f"{day}_post_id") == post_id:
+                    setattr(week, f"{day}_post_id", None)
+        db.delete(post)
+        db.commit()
+        db.close()
+        return jsonify({"status": "ok"})
+
+    @app.route("/api/linkedin/post/<int:post_id>/regenerate", methods=["POST"])
+    def linkedin_regenerate(post_id):
+        db = get_session()
+        post = db.query(LinkedInPost).get(post_id)
+        db.close()
+        if not post:
+            return jsonify({"error": "Post not found"}), 404
+        drafts = generate_post_drafts(post.pillar, post.audience)
+        return jsonify({"drafts": drafts, "post_id": post_id})
+
+    @app.route("/api/linkedin/post/<int:post_id>", methods=["PUT"])
+    def linkedin_update_post(post_id):
+        db = get_session()
+        post = db.query(LinkedInPost).get(post_id)
+        if not post:
+            db.close()
+            return jsonify({"error": "Post not found"}), 404
+        data = request.get_json()
+        for field in ["content", "status", "scheduled_date", "scheduled_time", "performance_notes"]:
+            if field in data:
+                setattr(post, field, data[field])
+        db.commit()
+        db.close()
+        return jsonify({"status": "ok"})
+
+    @app.route("/api/linkedin/post/<int:post_id>/recycle", methods=["POST"])
+    def linkedin_recycle(post_id):
+        mark_recyclable(post_id)
+        return jsonify({"status": "ok"})
+
+    @app.route("/api/linkedin/post/<int:post_id>/assign", methods=["POST"])
+    def linkedin_assign(post_id):
+        data = request.get_json()
+        week_start = data.get("week_start")
+        day = data.get("day")
+        if not week_start or not day or day not in DAY_ORDER:
+            return jsonify({"error": "week_start and valid day required"}), 400
+        assign_post_to_day(post_id, week_start, day)
+        return jsonify({"status": "ok"})
+
+    # --- Stats Routes ---
+
+    @app.route("/api/linkedin/stats", methods=["GET"])
+    def linkedin_stats_list():
+        include_expired = request.args.get("include_expired", "0") == "1"
+        stats = get_all_stats(include_expired=include_expired)
+        return jsonify([{
+            "id": s.id,
+            "stat_text": s.stat_text,
+            "source_name": s.source_name,
+            "source_url": s.source_url,
+            "date_verified": s.date_verified,
+            "category": s.category,
+            "is_expired": s.is_expired,
+        } for s in stats])
+
+    @app.route("/api/linkedin/stats", methods=["POST"])
+    def linkedin_stats_create():
+        data = request.get_json()
+        stat = create_stat(
+            stat_text=data.get("stat_text", ""),
+            source_name=data.get("source_name", ""),
+            source_url=data.get("source_url"),
+            date_verified=data.get("date_verified", ""),
+            category=data.get("category", ""),
+        )
+        return jsonify({"status": "ok", "id": stat.id})
+
+    @app.route("/api/linkedin/stats/<int:stat_id>", methods=["PUT"])
+    def linkedin_stats_update(stat_id):
+        data = request.get_json()
+        stat = update_stat(stat_id, **data)
+        if not stat:
+            return jsonify({"error": "Stat not found"}), 404
+        return jsonify({"status": "ok"})
+
+    @app.route("/api/linkedin/stats/<int:stat_id>", methods=["DELETE"])
+    def linkedin_stats_delete(stat_id):
+        if delete_stat(stat_id):
+            return jsonify({"status": "ok"})
+        return jsonify({"error": "Stat not found"}), 404
+
+    # --- News Routes ---
+
+    @app.route("/api/linkedin/news", methods=["GET"])
+    def linkedin_news_list():
+        days = int(request.args.get("days", 7))
+        digests = get_recent_digests(days=days)
+        return jsonify([{
+            "id": d.id,
+            "date": d.date.isoformat(),
+            "summary": d.summary,
+            "key_stats": json.loads(d.key_stats_json) if d.key_stats_json else [],
+            "post_angles": json.loads(d.post_angles_json) if d.post_angles_json else [],
+            "article_count": d.article_count,
+            "articles": json.loads(d.raw_articles_json) if d.raw_articles_json else [],
+        } for d in digests])
+
+    @app.route("/api/linkedin/news/refresh", methods=["POST"])
+    def linkedin_news_refresh():
+        try:
+            digest = run_daily_digest()
+            return jsonify({
+                "status": "ok",
+                "date": digest.date.isoformat(),
+                "article_count": digest.article_count,
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/linkedin/news/add-stat", methods=["POST"])
+    def linkedin_news_add_stat():
+        """Add an extracted stat from news digest to the stats bank."""
+        data = request.get_json()
+        stat = create_stat(
+            stat_text=data.get("stat_text", ""),
+            source_name=data.get("source_name", ""),
+            source_url=data.get("source_url"),
+            date_verified=data.get("date_verified", ""),
+            category=data.get("category", "market_scale"),
+        )
+        return jsonify({"status": "ok", "id": stat.id})
+
+    # Set up cron jobs on Railway
     if os.getenv("RAILWAY_ENVIRONMENT"):
         from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -243,10 +479,20 @@ def create_app():
                 except Exception as e:
                     print(f"  [cron] Report generation failed: {e}")
 
+        def _scheduled_news_digest():
+            with app.app_context():
+                try:
+                    digest = run_daily_digest()
+                    print(f"  [cron] News digest generated for {digest.date} ({digest.article_count} articles)")
+                except Exception as e:
+                    print(f"  [cron] News digest failed: {e}")
+
         scheduler = BackgroundScheduler()
         scheduler.add_job(_scheduled_generate, "cron", day_of_week="fri", hour=16, minute=0)
+        scheduler.add_job(_scheduled_news_digest, "cron", hour=6, minute=0)
         scheduler.start()
         print("  [cron] Scheduled weekly report for Fridays at 16:00 UTC")
+        print("  [cron] Scheduled daily news digest at 06:00 UTC")
 
     return app
 

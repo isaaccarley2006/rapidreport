@@ -1,0 +1,1054 @@
+{% extends "base.html" %}
+{% block title %}LinkedIn Content Creator - RapidReport{% endblock %}
+
+{% block content %}
+<style>
+    .li-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+    .li-header .page-title { margin-bottom: 0; }
+    .week-nav {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .week-nav button, .btn {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.15s;
+    }
+    .week-nav button:hover, .btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+    .btn-accent {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        font-weight: 600;
+    }
+    .btn-accent:hover { opacity: 0.85; color: #fff; }
+    .btn-accent:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-green { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+    .btn-green:hover { opacity: 0.85; color: var(--green); }
+    .btn-danger { background: rgba(220,53,69,0.1); border-color: #dc3545; color: #dc3545; }
+    .btn-danger:hover { opacity: 0.85; color: #dc3545; }
+    .week-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        min-width: 180px;
+        text-align: center;
+    }
+
+    /* Tabs */
+    .tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0;
+    }
+    .tab-btn {
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--text-muted);
+        padding: 10px 20px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Day Cards (vertical list) */
+    .day-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 12px;
+    }
+    .day-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .day-card-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .day-name {
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .day-pillar {
+        font-size: 12px;
+        color: var(--accent);
+    }
+    .day-card-content {
+        font-size: 13px;
+        line-height: 1.7;
+        color: var(--text);
+        white-space: pre-wrap;
+        margin-bottom: 12px;
+    }
+    .day-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .day-card-actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .char-count {
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+    .char-count.over { color: #dc3545; font-weight: 600; }
+    .day-empty-state {
+        text-align: center;
+        padding: 20px;
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+
+    /* Inline Edit */
+    .inline-edit-area {
+        width: 100%;
+        min-height: 200px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: inherit;
+        line-height: 1.7;
+        resize: vertical;
+        margin-bottom: 8px;
+    }
+    .inline-edit-area:focus { outline: none; border-color: var(--accent); }
+
+    /* Draft Picker */
+    .draft-picker {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin-top: 12px;
+    }
+    .draft-picker h4 {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+    }
+    .draft-option {
+        background: var(--surface);
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        padding: 14px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .draft-option:hover { border-color: var(--accent); }
+    .draft-option.selected { border-color: var(--accent); background: var(--accent-soft); }
+    .draft-option-content {
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text);
+        white-space: pre-wrap;
+        max-height: 150px;
+        overflow-y: auto;
+    }
+    .draft-option-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+    .draft-picker-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Status badges */
+    .badge {
+        display: inline-block;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .badge-draft { background: var(--warm-soft); color: var(--warm); }
+    .badge-approved { background: var(--green-soft); color: var(--green); }
+    .badge-scheduled { background: var(--accent-soft); color: var(--accent); }
+    .badge-published { background: var(--yellow-soft); color: var(--yellow); }
+
+    /* Stats Bank Tab */
+    .stats-section { margin-bottom: 24px; }
+    .stats-form {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr auto;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .stats-form-row2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    .stats-form input, .stats-form select, .stats-form-row2 input, .stats-form-row2 select {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+    }
+    .stats-form input:focus, .stats-form select:focus,
+    .stats-form-row2 input:focus, .stats-form-row2 select:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+    .stats-filter {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+    .stats-filter select, .stats-filter label {
+        font-size: 13px;
+        color: var(--text);
+    }
+    .stats-filter select {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 6px 10px;
+        border-radius: 8px;
+    }
+    .stat-group-header {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+        margin-top: 20px;
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--border);
+    }
+    .stat-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-text { flex: 1; line-height: 1.5; }
+    .stat-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 140px;
+        text-align: right;
+    }
+    .stat-source { color: var(--text-muted); font-size: 12px; }
+    .stat-cat {
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        display: inline-block;
+    }
+    .stat-date { font-size: 11px; color: var(--text-muted); }
+    .stat-actions { display: flex; gap: 4px; }
+
+    /* News Feed Tab */
+    .news-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 12px;
+    }
+    .news-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .news-date {
+        font-size: 14px;
+        font-weight: 600;
+    }
+    .news-article-count {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+    .news-summary {
+        font-size: 13px;
+        line-height: 1.7;
+        margin-bottom: 16px;
+        color: var(--text);
+    }
+    .news-section-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+    .news-stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        font-size: 13px;
+        border-bottom: 1px solid var(--border);
+    }
+    .news-stat-row:last-child { border-bottom: none; }
+    .news-angle {
+        padding: 6px 0;
+        font-size: 13px;
+        color: var(--text);
+        border-bottom: 1px solid var(--border);
+    }
+    .news-angle:last-child { border-bottom: none; }
+    .news-articles-toggle {
+        font-size: 12px;
+        color: var(--accent);
+        cursor: pointer;
+        margin-top: 12px;
+    }
+    .news-articles-list {
+        display: none;
+        margin-top: 8px;
+    }
+    .news-articles-list.open { display: block; }
+    .news-article-link {
+        display: block;
+        font-size: 12px;
+        padding: 4px 0;
+        color: var(--text-muted);
+    }
+    .news-article-link a { color: var(--accent); }
+
+    .empty-state-small {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+
+    /* Clipboard toast */
+    .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: var(--green);
+        color: #111;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        z-index: 200;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: all 0.3s;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 768px) {
+        .stats-form { grid-template-columns: 1fr; }
+        .stats-form-row2 { grid-template-columns: 1fr; }
+        .li-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+        .day-card-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+        .day-card-footer { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+</style>
+
+<div class="li-header">
+    <div>
+        <h1 class="page-title">LinkedIn Content Creator</h1>
+        <p class="page-sub">Plan and generate weekly LinkedIn posts for RapidRent</p>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+        <div class="week-nav">
+            <button onclick="navWeek(-1)">&larr; Prev</button>
+            <span class="week-label">Week of {{ week_start }}</span>
+            <button onclick="navWeek(1)">Next &rarr;</button>
+        </div>
+        <button class="btn btn-accent" id="genWeekBtn" onclick="generateWeek()">Generate This Week</button>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('week')">This Week</button>
+    <button class="tab-btn" onclick="switchTab('stats')">Stats Bank</button>
+    <button class="tab-btn" onclick="switchTab('news')">News Feed</button>
+</div>
+
+<!-- Tab 1: This Week -->
+<div class="tab-panel active" id="tab-week">
+    {% for day in day_order %}
+    {% set pillar = pillars[day] %}
+    {% set post = posts[day] %}
+    <div class="day-card" id="day-{{ day }}">
+        <div class="day-card-header">
+            <div class="day-card-header-left">
+                <span class="day-name">{{ day|capitalize }}</span>
+                <span class="day-pillar">{{ pillar.name }}</span>
+                {% if post %}
+                <span class="badge badge-{{ post.status }}">{{ post.status }}</span>
+                {% endif %}
+            </div>
+            {% if post %}
+            <div class="day-card-actions">
+                <button class="btn btn-sm" onclick="toggleEdit('{{ day }}', {{ post.id }})">Edit</button>
+                <button class="btn btn-sm btn-green" onclick="approvePost({{ post.id }})">Approve</button>
+                <button class="btn btn-sm" onclick="regenPost({{ post.id }}, '{{ day }}', '{{ pillar.name }}', '{{ pillar.audiences[0] }}')">Regenerate</button>
+                <button class="btn btn-sm" onclick="copyPost('{{ day }}')">Copy</button>
+                <button class="btn btn-sm btn-danger" onclick="deletePost({{ post.id }})">Delete</button>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if post %}
+        <!-- Display mode -->
+        <div id="display-{{ day }}">
+            <div class="day-card-content" id="content-{{ day }}">{{ post.content }}</div>
+            <div class="day-card-footer">
+                <span class="char-count {% if post.content|length > 3000 %}over{% endif %}">{{ post.content|length }} / 3000 chars</span>
+            </div>
+        </div>
+        <!-- Edit mode (hidden) -->
+        <div id="edit-{{ day }}" style="display:none;">
+            <textarea class="inline-edit-area" id="textarea-{{ day }}" oninput="updateCharCount('{{ day }}')">{{ post.content }}</textarea>
+            <div class="day-card-footer">
+                <span class="char-count" id="charcount-{{ day }}">{{ post.content|length }} / 3000 chars</span>
+                <div class="day-card-actions">
+                    <button class="btn btn-sm" onclick="cancelEdit('{{ day }}')">Cancel</button>
+                    <button class="btn btn-sm btn-accent" onclick="saveEdit({{ post.id }}, '{{ day }}')">Save</button>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="day-empty-state">
+            <p>No post yet</p>
+            <button class="btn btn-sm btn-accent" id="gen-btn-{{ day }}" onclick="generateSingle('{{ pillar.name }}', '{{ pillar.audiences[0] }}', '{{ day }}', '{{ pillar.template }}')">Generate</button>
+        </div>
+        <!-- Draft picker (hidden, shown after generate) -->
+        <div class="draft-picker" id="picker-{{ day }}" style="display:none;">
+            <h4>Choose a draft</h4>
+            <div id="picker-options-{{ day }}"></div>
+            <div class="draft-picker-actions">
+                <button class="btn btn-sm" onclick="cancelPicker('{{ day }}')">Cancel</button>
+                <button class="btn btn-sm btn-accent" onclick="useSelected('{{ day }}', '{{ pillar.name }}', '{{ pillar.audiences[0] }}', '{{ pillar.template }}')">Use Selected</button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Tab 2: Stats Bank -->
+<div class="tab-panel" id="tab-stats">
+    <div class="stats-section">
+        <h3 style="font-size:16px;margin-bottom:16px;">Add New Stat</h3>
+        <div class="stats-form">
+            <input type="text" id="statText" placeholder="Statistic text...">
+            <input type="text" id="statSource" placeholder="Source name">
+            <input type="text" id="statUrl" placeholder="Source URL (optional)">
+            <select id="statCategory">
+                <option value="void_periods">Void Periods</option>
+                <option value="referencing">Referencing</option>
+                <option value="market_scale">Market Scale</option>
+                <option value="renters_rights_act">Renters' Rights Act</option>
+                <option value="tenant_behaviour">Tenant Behaviour</option>
+            </select>
+        </div>
+        <div class="stats-form-row2">
+            <input type="text" id="statDate" placeholder="Date verified (e.g. 2024-10)">
+            <div></div>
+            <button class="btn btn-accent btn-sm" onclick="addStat()">Add Stat</button>
+        </div>
+
+        <div class="stats-filter">
+            <select id="statsFilterCat" onchange="filterStats()">
+                <option value="">All Categories</option>
+                <option value="void_periods">Void Periods</option>
+                <option value="referencing">Referencing</option>
+                <option value="market_scale">Market Scale</option>
+                <option value="renters_rights_act">Renters' Rights Act</option>
+                <option value="tenant_behaviour">Tenant Behaviour</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="statsFilterActive" checked onchange="filterStats()">
+                Active only
+            </label>
+        </div>
+
+        <div id="statsList">
+            {% set categories_seen = [] %}
+            {% for s in stats|sort(attribute='category') %}
+                {% if s.category not in categories_seen %}
+                    {% if categories_seen.append(s.category) %}{% endif %}
+                    <div class="stat-group-header stat-group-{{ s.category }}">{{ s.category|replace('_', ' ')|title }}</div>
+                {% endif %}
+                <div class="stat-row" id="stat-{{ s.id }}" data-category="{{ s.category }}" data-expired="{{ s.is_expired }}">
+                    <div class="stat-text">{{ s.stat_text }}</div>
+                    <div class="stat-meta">
+                        <span class="stat-source">{{ s.source_name }}</span>
+                        <span class="stat-cat">{{ s.category|replace('_', ' ') }}</span>
+                        <span class="stat-date">{{ s.date_verified }}</span>
+                    </div>
+                    <div class="stat-actions">
+                        <button class="btn btn-sm" onclick="expireStat({{ s.id }})">{{ 'Reactivate' if s.is_expired else 'Expire' }}</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteStat({{ s.id }})">&times;</button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Tab 3: News Feed -->
+<div class="tab-panel" id="tab-news">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h3 style="font-size:16px;">Recent News Digests</h3>
+        <button class="btn btn-accent btn-sm" id="refreshNewsBtn" onclick="refreshNews()">Refresh Now</button>
+    </div>
+
+    <div id="newsContainer">
+        {% if news_digests %}
+            {% for digest in news_digests %}
+            <div class="news-card">
+                <div class="news-card-header">
+                    <span class="news-date">{{ digest.date }}</span>
+                    <span class="news-article-count">{{ digest.article_count }} articles</span>
+                </div>
+
+                {% if digest.summary %}
+                <div class="news-summary">{{ digest.summary }}</div>
+                {% endif %}
+
+                {% if digest.key_stats_json %}
+                {% set key_stats = digest.key_stats_json|tojson|safe %}
+                <div class="news-section-label">Extracted Stats</div>
+                <div id="news-stats-{{ digest.id }}"></div>
+                <script>
+                (function() {
+                    try {
+                        var stats = JSON.parse({{ digest.key_stats_json|tojson }});
+                        var container = document.getElementById('news-stats-{{ digest.id }}');
+                        if (Array.isArray(stats)) {
+                            stats.forEach(function(s) {
+                                var row = document.createElement('div');
+                                row.className = 'news-stat-row';
+                                row.innerHTML = '<span>' + (s.stat || s) + (s.source ? ' <em style="color:var(--text-muted);">(' + s.source + ')</em>' : '') + '</span>' +
+                                    '<button class="btn btn-sm btn-green" onclick="addStatFromNews(\'' +
+                                    (s.stat || s).replace(/'/g, "\\'").replace(/"/g, '&quot;') + '\', \'' +
+                                    (s.source || 'News').replace(/'/g, "\\'") + '\', \'' +
+                                    (s.url || '').replace(/'/g, "\\'") + '\')">Add to Stats</button>';
+                                container.appendChild(row);
+                            });
+                        }
+                    } catch(e) {}
+                })();
+                </script>
+                {% endif %}
+
+                {% if digest.post_angles_json %}
+                <div class="news-section-label" style="margin-top:16px;">Post Angles</div>
+                <div id="news-angles-{{ digest.id }}"></div>
+                <script>
+                (function() {
+                    try {
+                        var angles = JSON.parse({{ digest.post_angles_json|tojson }});
+                        var container = document.getElementById('news-angles-{{ digest.id }}');
+                        if (Array.isArray(angles)) {
+                            angles.forEach(function(a) {
+                                var div = document.createElement('div');
+                                div.className = 'news-angle';
+                                div.textContent = a;
+                                container.appendChild(div);
+                            });
+                        }
+                    } catch(e) {}
+                })();
+                </script>
+                {% endif %}
+
+                {% if digest.raw_articles_json %}
+                <div class="news-articles-toggle" onclick="toggleArticles({{ digest.id }})">Show articles</div>
+                <div class="news-articles-list" id="articles-{{ digest.id }}">
+                    <script>
+                    (function() {
+                        try {
+                            var articles = JSON.parse({{ digest.raw_articles_json|tojson }});
+                            var container = document.getElementById('articles-{{ digest.id }}');
+                            if (Array.isArray(articles)) {
+                                articles.slice(0, 20).forEach(function(a) {
+                                    var div = document.createElement('div');
+                                    div.className = 'news-article-link';
+                                    div.innerHTML = '<a href="' + a.url + '" target="_blank">' + a.title + '</a> <span style="color:var(--text-muted);">(' + a.source + ')</span>';
+                                    container.appendChild(div);
+                                });
+                            }
+                        } catch(e) {}
+                    })();
+                    </script>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state-small">
+                <p>No news digests yet.</p>
+                <p style="margin-top:8px;">Click "Refresh Now" to fetch the latest UK property news.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Clipboard Toast -->
+<div class="toast" id="toast">Copied to clipboard!</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const WEEK_START = "{{ week_start }}";
+
+// --- Tab Switching ---
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    event.target.classList.add('active');
+    window.location.hash = tab;
+}
+// Restore tab from URL hash
+(function() {
+    var hash = window.location.hash.replace('#', '');
+    if (hash && document.getElementById('tab-' + hash)) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('tab-' + hash).classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            if (b.textContent.toLowerCase().includes(hash === 'week' ? 'this week' : hash)) b.classList.add('active');
+        });
+    }
+})();
+
+// --- Week Navigation ---
+function navWeek(offset) {
+    const d = new Date(WEEK_START + "T00:00:00");
+    d.setDate(d.getDate() + (offset * 7));
+    const iso = d.toISOString().split("T")[0];
+    window.location.href = "/linkedin?week=" + iso;
+}
+
+// --- Generate All Week ---
+async function generateWeek() {
+    const btn = document.getElementById("genWeekBtn");
+    btn.innerHTML = '<span class="spinner"></span>Generating...';
+    btn.disabled = true;
+    try {
+        const res = await fetch("/api/linkedin/generate-week", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({week_start: WEEK_START})
+        });
+        if (res.ok) {
+            window.location.reload();
+        } else {
+            alert("Generation failed");
+            btn.textContent = "Generate This Week";
+            btn.disabled = false;
+        }
+    } catch(e) {
+        alert("Error: " + e.message);
+        btn.textContent = "Generate This Week";
+        btn.disabled = false;
+    }
+}
+
+// --- Generate Single Day (with draft picker) ---
+var selectedDraft = {};
+
+async function generateSingle(pillar, audience, day, templateType) {
+    const btn = document.getElementById("gen-btn-" + day);
+    if (btn) {
+        btn.innerHTML = '<span class="spinner"></span>Generating...';
+        btn.disabled = true;
+    }
+    try {
+        const res = await fetch("/api/linkedin/generate", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({pillar, audience})
+        });
+        if (res.ok) {
+            const data = await res.json();
+            showDraftPicker(day, data.drafts || []);
+        } else {
+            alert("Generation failed");
+            if (btn) { btn.textContent = "Generate"; btn.disabled = false; }
+        }
+    } catch(e) {
+        alert("Error: " + e.message);
+        if (btn) { btn.textContent = "Generate"; btn.disabled = false; }
+    }
+}
+
+function showDraftPicker(day, drafts) {
+    var picker = document.getElementById("picker-" + day);
+    var options = document.getElementById("picker-options-" + day);
+    var btn = document.getElementById("gen-btn-" + day);
+    if (btn) btn.style.display = "none";
+
+    options.innerHTML = "";
+    selectedDraft[day] = null;
+
+    drafts.forEach(function(draft, i) {
+        var div = document.createElement("div");
+        div.className = "draft-option" + (i === 0 ? " selected" : "");
+        div.innerHTML = '<div class="draft-option-content">' + escapeHtml(draft) + '</div>' +
+            '<div class="draft-option-footer"><span>Draft ' + (i+1) + '</span><span>' + draft.length + ' chars</span></div>';
+        div.onclick = function() {
+            options.querySelectorAll('.draft-option').forEach(o => o.classList.remove('selected'));
+            div.classList.add('selected');
+            selectedDraft[day] = i;
+        };
+        options.appendChild(div);
+        if (i === 0) selectedDraft[day] = 0;
+    });
+
+    // Store drafts for later
+    picker.dataset.drafts = JSON.stringify(drafts);
+    picker.style.display = "block";
+}
+
+function cancelPicker(day) {
+    document.getElementById("picker-" + day).style.display = "none";
+    var btn = document.getElementById("gen-btn-" + day);
+    if (btn) { btn.style.display = ""; btn.textContent = "Generate"; btn.disabled = false; }
+}
+
+async function useSelected(day, pillar, audience, templateType) {
+    var picker = document.getElementById("picker-" + day);
+    var drafts = JSON.parse(picker.dataset.drafts || "[]");
+    var idx = selectedDraft[day];
+    if (idx === null || idx === undefined || !drafts[idx]) { alert("Please select a draft"); return; }
+
+    var content = drafts[idx];
+    // Save the post
+    const res = await fetch("/api/linkedin/post", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({content, pillar, audience, template_type: templateType})
+    });
+    if (res.ok) {
+        const data = await res.json();
+        // Assign to day
+        await fetch("/api/linkedin/post/" + data.post_id + "/assign", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({week_start: WEEK_START, day})
+        });
+        window.location.reload();
+    } else {
+        alert("Failed to save post");
+    }
+}
+
+// --- Inline Edit ---
+function toggleEdit(day, postId) {
+    var display = document.getElementById("display-" + day);
+    var edit = document.getElementById("edit-" + day);
+    if (edit.style.display === "none") {
+        display.style.display = "none";
+        edit.style.display = "block";
+        document.getElementById("textarea-" + day).focus();
+    } else {
+        cancelEdit(day);
+    }
+}
+
+function cancelEdit(day) {
+    document.getElementById("display-" + day).style.display = "block";
+    document.getElementById("edit-" + day).style.display = "none";
+}
+
+function updateCharCount(day) {
+    var textarea = document.getElementById("textarea-" + day);
+    var counter = document.getElementById("charcount-" + day);
+    var len = textarea.value.length;
+    counter.textContent = len + " / 3000 chars";
+    counter.className = "char-count" + (len > 3000 ? " over" : "");
+}
+
+async function saveEdit(postId, day) {
+    var content = document.getElementById("textarea-" + day).value;
+    await fetch("/api/linkedin/post/" + postId, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({content})
+    });
+    window.location.reload();
+}
+
+// --- Post Actions ---
+async function approvePost(id) {
+    await fetch("/api/linkedin/post/" + id + "/approve", {method: "POST"});
+    window.location.reload();
+}
+
+async function deletePost(id) {
+    if (!confirm("Delete this post?")) return;
+    await fetch("/api/linkedin/post/" + id + "/reject", {method: "POST"});
+    window.location.reload();
+}
+
+async function regenPost(id, day, pillar, audience) {
+    var btn = event.target;
+    btn.innerHTML = '<span class="spinner"></span>';
+    btn.disabled = true;
+    try {
+        const res = await fetch("/api/linkedin/post/" + id + "/regenerate", {method: "POST"});
+        if (res.ok) {
+            const data = await res.json();
+            if (data.drafts && data.drafts.length > 0) {
+                // Show the drafts in a picker-like UI within the day card
+                var card = document.getElementById("day-" + day);
+                var existing = card.querySelector('.draft-picker');
+                if (existing) existing.remove();
+
+                var picker = document.createElement('div');
+                picker.className = 'draft-picker';
+                picker.innerHTML = '<h4>Choose a replacement draft</h4><div id="regen-options-' + day + '"></div>' +
+                    '<div class="draft-picker-actions">' +
+                    '<button class="btn btn-sm" onclick="this.closest(\'.draft-picker\').remove()">Cancel</button>' +
+                    '<button class="btn btn-sm btn-accent" onclick="useRegenDraft(' + id + ', \'' + day + '\')">Use Selected</button>' +
+                    '</div>';
+                card.appendChild(picker);
+
+                var options = document.getElementById('regen-options-' + day);
+                picker.dataset.drafts = JSON.stringify(data.drafts);
+                selectedDraft['regen-' + day] = 0;
+
+                data.drafts.forEach(function(draft, i) {
+                    var div = document.createElement('div');
+                    div.className = 'draft-option' + (i === 0 ? ' selected' : '');
+                    div.innerHTML = '<div class="draft-option-content">' + escapeHtml(draft) + '</div>' +
+                        '<div class="draft-option-footer"><span>Draft ' + (i+1) + '</span><span>' + draft.length + ' chars</span></div>';
+                    div.onclick = function() {
+                        options.querySelectorAll('.draft-option').forEach(o => o.classList.remove('selected'));
+                        div.classList.add('selected');
+                        selectedDraft['regen-' + day] = i;
+                    };
+                    options.appendChild(div);
+                });
+            }
+        }
+    } catch(e) {
+        alert("Error: " + e.message);
+    }
+    btn.textContent = "Regenerate";
+    btn.disabled = false;
+}
+
+async function useRegenDraft(postId, day) {
+    var picker = document.getElementById("day-" + day).querySelector('.draft-picker');
+    var drafts = JSON.parse(picker.dataset.drafts || "[]");
+    var idx = selectedDraft['regen-' + day];
+    if (idx === null || idx === undefined || !drafts[idx]) return;
+
+    await fetch("/api/linkedin/post/" + postId, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({content: drafts[idx]})
+    });
+    window.location.reload();
+}
+
+// --- Copy to Clipboard ---
+function copyPost(day) {
+    var content = document.getElementById("content-" + day);
+    if (!content) return;
+    navigator.clipboard.writeText(content.textContent).then(function() {
+        showToast("Copied to clipboard!");
+    });
+}
+
+function showToast(msg) {
+    var toast = document.getElementById("toast");
+    toast.textContent = msg;
+    toast.classList.add("show");
+    setTimeout(function() { toast.classList.remove("show"); }, 2000);
+}
+
+// --- Stats Bank ---
+async function addStat() {
+    var stat_text = document.getElementById("statText").value.trim();
+    var source_name = document.getElementById("statSource").value.trim();
+    var source_url = document.getElementById("statUrl").value.trim();
+    var category = document.getElementById("statCategory").value;
+    var date_verified = document.getElementById("statDate").value.trim();
+    if (!stat_text || !source_name) { alert("Stat text and source required"); return; }
+    const res = await fetch("/api/linkedin/stats", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({stat_text, source_name, source_url: source_url || null, category, date_verified})
+    });
+    if (res.ok) window.location.reload();
+}
+
+async function deleteStat(id) {
+    if (!confirm("Delete this stat?")) return;
+    await fetch("/api/linkedin/stats/" + id, {method: "DELETE"});
+    document.getElementById("stat-" + id).remove();
+}
+
+async function expireStat(id) {
+    var row = document.getElementById("stat-" + id);
+    var isExpired = row.dataset.expired === "True";
+    await fetch("/api/linkedin/stats/" + id, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({is_expired: !isExpired})
+    });
+    window.location.reload();
+}
+
+function filterStats() {
+    var cat = document.getElementById("statsFilterCat").value;
+    var activeOnly = document.getElementById("statsFilterActive").checked;
+    document.querySelectorAll('.stat-row').forEach(function(row) {
+        var rowCat = row.dataset.category;
+        var rowExpired = row.dataset.expired === "True";
+        var show = true;
+        if (cat && rowCat !== cat) show = false;
+        if (activeOnly && rowExpired) show = false;
+        row.style.display = show ? "" : "none";
+    });
+    // Show/hide group headers
+    document.querySelectorAll('.stat-group-header').forEach(function(header) {
+        var headerCat = header.className.replace('stat-group-header stat-group-', '');
+        if (cat && headerCat !== cat) {
+            header.style.display = "none";
+        } else {
+            header.style.display = "";
+        }
+    });
+}
+
+// --- News Feed ---
+async function refreshNews() {
+    var btn = document.getElementById("refreshNewsBtn");
+    btn.innerHTML = '<span class="spinner"></span>Fetching...';
+    btn.disabled = true;
+    try {
+        const res = await fetch("/api/linkedin/news/refresh", {method: "POST"});
+        if (res.ok) {
+            window.location.hash = "news";
+            window.location.reload();
+        } else {
+            var data = await res.json();
+            alert("Failed: " + (data.error || "Unknown error"));
+        }
+    } catch(e) {
+        alert("Error: " + e.message);
+    }
+    btn.textContent = "Refresh Now";
+    btn.disabled = false;
+}
+
+function toggleArticles(digestId) {
+    var list = document.getElementById("articles-" + digestId);
+    list.classList.toggle("open");
+    var toggle = list.previousElementSibling;
+    toggle.textContent = list.classList.contains("open") ? "Hide articles" : "Show articles";
+}
+
+async function addStatFromNews(statText, sourceName, sourceUrl) {
+    var today = new Date().toISOString().split('T')[0].slice(0, 7);
+    const res = await fetch("/api/linkedin/news/add-stat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            stat_text: statText,
+            source_name: sourceName,
+            source_url: sourceUrl || null,
+            date_verified: today,
+            category: "market_scale"
+        })
+    });
+    if (res.ok) {
+        showToast("Stat added to Stats Bank!");
+    } else {
+        alert("Failed to add stat");
+    }
+}
+
+// --- Utility ---
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
