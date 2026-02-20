@@ -211,6 +211,7 @@
                 <div class="nav-label">Navigation</div>
                 <a href="/" class="nav-item {% if nav_active == 'dashboard' %}active{% endif %}">Dashboard</a>
                 <a href="/ask" class="nav-item {% if nav_active == 'ask' %}active{% endif %}">Ask</a>
+                <a href="/linkedin" class="nav-item {% if nav_active == 'linkedin' %}active{% endif %}">LinkedIn</a>
                 <div class="nav-label">Reports</div>
                 {% for r in sidebar_reports or [] %}
                 <a href="/report/{{ r.id }}" class="nav-item {% if active_id == r.id %}active{% endif %}">
